@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="StudyFlow">
+<meta name="theme-color" content="#6c8aff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>StudyFlow</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f1117;--surface:#181c27;--card:#1e2333;--border:#2a2f42;
+    --accent:#6c8aff;--green:#34d399;--amber:#fbbf24;--red:#f87171;--teal:#5fe0d0;--purple:#a78bfa;
+    --text:#e8eaf0;--muted:#7c82a0;--r:10px;--f:system-ui,-apple-system,sans-serif
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--f);font-size:14px;line-height:1.5;height:100vh;overflow:hidden}
+  h1{font-size:18px;font-weight:700}
+  h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:10px}
+  input,select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s;width:100%;font-family:var(--f)}
+  input:focus,select:focus{border-color:var(--accent)}
+  input::placeholder{color:var(--muted)}
+  select option{background:var(--surface)}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  .btn{border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;padding:7px 14px;transition:all .15s;display:inline-flex;align-items:center;gap:5px;font-family:var(--f)}
+  .btn-p{background:var(--accent);color:#fff}.btn-p:hover{filter:brightness(1.15)}
+  .btn-s{background:var(--card);border:1px solid var(--border);color:var(--text)}.btn-s:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-sm{padding:5px 10px;font-size:12px}
+  .btn-cram{background:#b91c1c;color:#fff;font-weight:700;width:100%;justify-content:center;font-size:14px;padding:10px}.btn-cram:hover{background:#dc2626}
+  .btn-gen{background:var(--accent);color:#fff;font-size:14px;padding:9px 20px}.btn-gen:hover{filter:brightness(1.12)}
+  .btn-google{background:#fff;color:#222;font-weight:600;font-size:14px;padding:12px 20px;border-radius:8px;width:100%;justify-content:center;gap:10px;border:none}
+  .btn-google:hover{background:#f0f0f0}
+
+  /* LOGIN SCREEN */
+  .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:0}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:340px;max-width:92vw;text-align:center;display:flex;flex-direction:column;gap:20px}
+  .login-logo{font-size:48px;margin-bottom:4px}
+  .login-title{font-size:24px;font-weight:700}
+  .login-sub{font-size:13px;color:var(--muted);margin-top:-8px}
+  .login-divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+  .login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+  .login-status{font-size:12px;color:var(--muted);min-height:16px}
+
+  /* USER AVATAR */
+  .user-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border-radius:8px;margin-bottom:0}
+  .avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden}
+  .avatar img{width:100%;height:100%;object-fit:cover}
+  .user-name{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btn-signout{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;font-family:var(--f);padding:2px 6px;border-radius:4px}.btn-signout:hover{color:var(--red)}
+
+  /* SYNC STATUS */
+  .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px}
+  .sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* APP LAYOUT */
+  .app{display:flex;height:100vh;overflow:hidden}
+  .sb{width:272px;min-width:272px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+  .sb-head{padding:16px 14px 12px;border-bottom:1px solid var(--border)}
+  .sb-head p{color:var(--muted);font-size:11px;margin-top:2px}
+  .sb-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:16px}
+  .sb-foot{padding:12px 14px;border-top:1px solid var(--border)}
+  .sleep-row{display:flex;gap:8px}.sleep-row>div{flex:1}
+  .c-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .c-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;display:flex;align-items:flex-start;gap:8px}
+  .c-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+  .c-info{flex:1;min-width:0}.c-name{font-weight:500;font-size:13px}.c-meta{font-size:11px;color:var(--muted);margin-top:1px}
+  .btn-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:0}.btn-x:hover{color:var(--red)}
+  .add-form{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .days-row{display:flex;gap:3px;flex-wrap:wrap}
+  .day-btn{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-size:11px;color:var(--muted);cursor:pointer;transition:all .15s;font-family:var(--f)}
+  .day-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .t-row{display:flex;gap:6px;align-items:center}.t-row span{color:var(--muted);font-size:12px;flex-shrink:0}
+  .main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  .main-head{padding:16px 22px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+  .main-head p{color:var(--muted);font-size:12px;margin-top:1px}
+  .main-body{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:18px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 14px}
+  .stat .v{font-size:18px;font-weight:700}.stat .l{font-size:11px;color:var(--muted)}
+  .add-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+  .a-grid{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .a-row{display:flex;gap:8px}.a-row>*{flex:1}.a-row>input{flex:2}
+  .a-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .a-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px}
+  .a-item-info{flex:1;min-width:0}.a-item-name{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.a-item-meta{font-size:11px;color:var(--muted);margin-top:1px}
+  .sched{display:flex;flex-direction:column;gap:8px}
+  .blk{border-radius:var(--r);padding:12px 14px;display:flex;align-items:flex-start;gap:12px;border:1px solid var(--border)}
+  .blk-class{background:#141e36;border-color:#1e3460}.blk-activity{background:#1a1430;border-color:#2e1e5a}
+  .blk-hw{background:var(--card)}.blk-study{background:#0d1e14;border-color:#1a3826}
+  .blk-sleep{background:#0a1818;border-color:#143030}.blk-break{background:#141a10;border-color:#243416}
+  .blk-dinner{background:#1a1200;border-color:#3a2800}.blk-shower{background:#0e1520;border-color:#1e2a40}
+  .blk-done{opacity:.4}
+  .blk-time{font-size:12px;color:var(--muted);min-width:72px;padding-top:2px;font-variant-numeric:tabular-nums}
+  .blk-body{flex:1}.blk-title{font-weight:500;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .blk-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+  .p-class{background:#1e3a6e;color:#7eb4ff}.p-activity{background:#2e1a5e;color:#b49aff}
+  .p-hw{background:#2a2000;color:var(--amber)}.p-study{background:#0d2a1a;color:var(--green)}
+  .p-sleep{background:#0a2020;color:var(--teal)}.p-break{background:#1a2610;color:#7acd6a}
+  .p-dinner{background:#3a2800;color:#f59e0b}.p-shower{background:#1e2a40;color:#93c5fd}
+  .blk-acts{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .mark-btn{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px;padding:4px 10px;font-family:var(--f);transition:all .15s}
+  .mark-btn:hover{background:var(--green);border-color:var(--green);color:#000}
+  .done-lbl{background:#0d2a1a;border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:12px;padding:4px 10px}
+  .tag{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 8px}
+  .split-tag{font-size:11px;color:var(--purple);background:#1a1030;border:1px solid #3a2060;border-radius:5px;padding:3px 8px}
+  .nudge{background:#0d2a1a;border:1px solid #1a5a30;border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--teal)}
+  .warn{background:#2a1a00;border:1px solid #5a3a00;border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--amber)}
+  .empty{text-align:center;padding:48px 20px;color:var(--muted)}.empty .ico{font-size:40px;margin-bottom:10px}.empty p{font-size:13px}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:200}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:340px;max-width:92vw}
+  .modal h3{font-size:16px;font-weight:600;margin-bottom:8px}.modal p{font-size:13px;color:var(--muted);margin-bottom:14px}
+  .modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div>
+      <div class="login-logo">🎒</div>
+      <div class="login-title">StudyFlow</div>
+      <div class="login-sub">Your evening, planned for you</div>
+    </div>
+    <button class="btn btn-google" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div class="login-status" id="login-status"></div>
+  </div>
+</div>
+
+<!-- INSTALL BANNER -->
+<div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:#1e2333;border-top:1px solid #2a2f42;padding:12px 16px;align-items:center;justify-content:space-between;gap:12px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <img src="/icon-192.png" style="width:36px;height:36px;border-radius:8px;">
+    <div><div style="font-weight:600;font-size:13px;">Install StudyFlow</div><div style="font-size:11px;color:#7c82a0;">Add to your home screen</div></div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button id="install-btn" style="background:#6c8aff;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;">Install</button>
+    <button onclick="document.getElementById('install-banner').style.display='none'" style="background:#1e2333;color:#7c82a0;border:1px solid #2a2f42;border-radius:7px;padding:7px 10px;font-size:13px;cursor:pointer;">✕</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="main-app" style="display:none">
+  <div class="sb">
+    <div class="sb-head">
+      <h1>🎒 StudyFlow</h1>
+      <p>Your evening, planned for you</p>
+    </div>
+    <div class="sb-body">
+
+      <!-- USER -->
+      <div>
+        <h2>Account</h2>
+        <div class="user-bar">
+          <div class="avatar" id="user-avatar"></div>
+          <div class="user-name" id="user-name">Loading...</div>
+          <span class="sync-dot" id="sync-dot"></span>
+          <button class="btn-signout" onclick="signOut()">Sign out</button>
+        </div>
+      </div>
+
+      <!-- CANVAS -->
+      <div>
+        <h2>Canvas Integration</h2>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div>
+            <label>Canvas School URL</label>
+            <input type="text" id="canvas-url" placeholder="Type your school name or myschool.instructure.com" onblur="guessCanvasUrl()" onchange="saveSettings()">
+            <div id="canvas-url-hint" style="font-size:11px;color:var(--muted);margin-top:3px;display:none"></div>
+          </div>
+          <div><label>API Token</label><input type="text" id="canvas-token" placeholder="Paste your token here" onchange="saveSettings()"></div>
+          <button class="btn btn-p btn-sm" style="width:100%;justify-content:center" onclick="fetchCanvas()">🔗 Connect & import</button>
+          <div id="canvas-status" style="font-size:12px;color:var(--muted);text-align:center;display:none"></div>
+        </div>
+      </div>
+
+      <!-- SLEEP -->
+      <div>
+        <h2>Sleep window</h2>
+        <div class="sleep-row">
+          <div><label>Bedtime</label><input type="time" id="sleep-start" value="22:30" onchange="saveSettings()"></div>
+          <div><label>Wake up</label><input type="time" id="sleep-end" value="07:00" onchange="saveSettings()"></div>
+        </div>
+      </div>
+
+      <!-- PREFS -->
+      <div>
+        <h2>Preferences</h2>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div><label>Max study block</label>
+            <select id="max-chunk" onchange="saveSettings()">
+              <option value="45">45 minutes</option>
+              <option value="60" selected>1 hour</option>
+              <option value="90">1.5 hours</option>
+            </select>
+          </div>
+          <div><label>Evening starts at</label><input type="time" id="eve-start" value="15:00" onchange="saveSettings()"></div>
+          <div><label>Dinner time</label><input type="time" id="dinner-time" value="18:00" onchange="saveSettings()"></div>
+          <div><label>Dinner duration</label>
+            <select id="dinner-dur" onchange="saveSettings()">
+              <option value="30" selected>30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">1 hour</option>
+            </select>
+          </div>
+          <div><label>Shower & wind-down</label>
+            <select id="shower-dur" onchange="saveSettings()">
+              <option value="15">15 minutes</option>
+              <option value="30" selected>30 minutes</option>
+              <option value="45">45 minutes</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMITMENTS -->
+      <div>
+        <h2>Classes & activities</h2>
+        <div class="c-list" id="c-list"></div>
+        <div id="add-form" class="add-form" style="display:none">
+          <div><label>Name</label><input type="text" id="cf-name" placeholder="e.g. Chemistry, Soccer"></div>
+          <div><label>Days</label>
+            <div class="days-row">
+              <button class="day-btn" data-d="Mon" onclick="toggleDay(this)">Mon</button>
+              <button class="day-btn" data-d="Tue" onclick="toggleDay(this)">Tue</button>
+              <button class="day-btn" data-d="Wed" onclick="toggleDay(this)">Wed</button>
+              <button class="day-btn" data-d="Thu" onclick="toggleDay(this)">Thu</button>
+              <button class="day-btn" data-d="Fri" onclick="toggleDay(this)">Fri</button>
+              <button class="day-btn" data-d="Sat" onclick="toggleDay(this)">Sat</button>
+              <button class="day-btn" data-d="Sun" onclick="toggleDay(this)">Sun</button>
+            </div>
+          </div>
+          <div class="t-row">
+            <input type="time" id="cf-start" value="09:00" style="flex:1">
+            <span>to</span>
+            <input type="time" id="cf-end" value="10:00" style="flex:1">
+          </div>
+          <select id="cf-type"><option value="class">Class</option><option value="activity">Extracurricular</option></select>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-p btn-sm" style="flex:1" onclick="saveCommitment()">Add</button>
+            <button class="btn btn-s btn-sm" onclick="hideForm()">Cancel</button>
+          </div>
+        </div>
+        <button class="btn btn-s btn-sm" style="width:100%;margin-top:6px;justify-content:center" onclick="showForm()">+ Add commitment</button>
+      </div>
+
+    </div>
+    <div class="sb-foot">
+      <button class="btn btn-cram" onclick="cramMode()">⚡ Cram mode</button>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Fit everything into tonight</p>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-head">
+      <div><h1>Tonight's plan</h1><p id="hdr-date"></p></div>
+      <button class="btn btn-gen" onclick="buildSchedule(false)">Generate schedule</button>
+    </div>
+    <div class="main-body">
+      <div class="stats" id="stats" style="display:none">
+        <div class="stat"><div class="v" id="s-tasks">0</div><div class="l">pending</div></div>
+        <div class="stat"><div class="v" id="s-time">0h</div><div class="l">study time</div></div>
+        <div class="stat"><div class="v" id="s-sleep">0h</div><div class="l">sleep</div></div>
+        <div class="stat"><div class="v" id="s-free">—</div><div class="l">free time</div></div>
+      </div>
+      <div class="add-box">
+        <h2>Add assignment</h2>
+        <div class="a-grid">
+          <input type="text" id="a-name" placeholder="Assignment name (e.g. Chapter 4 reading, Algebra worksheet)" onkeydown="if(event.key==='Enter')addAssignment()">
+          <div class="a-row">
+            <select id="a-type"><option value="hw">Homework</option><option value="study">Study / test prep</option></select>
+            <select id="a-due">
+              <option value="1">Due tomorrow</option><option value="2">Due in 2 days</option>
+              <option value="3">Due in 3 days</option><option value="5">Due in 5 days</option>
+              <option value="7">Due in a week</option>
+            </select>
+            <select id="a-hrs">
+              <option value="0.5">30 min</option><option value="1" selected>1 hour</option>
+              <option value="1.5">1.5 hours</option><option value="2">2 hours</option>
+              <option value="3">3 hours</option><option value="4">4 hours</option>
+            </select>
+            <button class="btn btn-p" onclick="addAssignment()">Add</button>
+          </div>
+          <div class="a-list" id="a-list"></div>
+        </div>
+      </div>
+      <div>
+        <h2>Schedule</h2>
+        <div class="sched" id="sched">
+          <div class="empty"><div class="ico">📅</div><p>Add an assignment above, then hit <strong>Generate schedule</strong></p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="modal" style="display:none">
+  <div class="modal">
+    <h3>Nice work! ✅</h3>
+    <p>How long did that actually take? This helps StudyFlow estimate better next time.</p>
+    <input type="text" id="modal-input" placeholder="e.g. 45 minutes, 1.5 hours" onkeydown="if(event.key==='Enter')closeModal(this.value)">
+    <div class="modal-btns">
+      <button class="btn btn-s btn-sm" onclick="closeModal(null)">Skip</button>
+      <button class="btn btn-p btn-sm" onclick="closeModal(document.getElementById('modal-input').value)">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Supabase ────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://prevbislidnkafpepvsa.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZXZiaXNsaWRua2FmcGVwdnNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNTk5NjksImV4cCI6MjA5OTczNTk2OX0.03ry2QHOUbW5plSSC1qTRFpODASS20W9UnthBovIw7o';
+
+// IMPORTANT: everything below (signInGoogle, saveCommitment, etc.) is
+// defined further down in this same <script> block. If the line that
+// creates the Supabase client throws — e.g. because the supabase-js CDN
+// script got blocked, was slow, or failed to load — the whole script stops
+// executing right here, and NONE of those functions ever get defined.
+// That's what makes every button on the page look "dead": onclick="..."
+// tries to call a function that silently doesn't exist. Wrapping this in
+// try/catch, and defining a safe fallback for signInGoogle, means a
+// network hiccup shows a real error message instead of a fully broken page.
+let sb;
+try {
+  if (typeof supabase === 'undefined') {
+    throw new Error('Supabase library failed to load (check your internet connection or try disabling ad blockers/extensions, then refresh)');
+  }
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (err) {
+  console.error('Supabase init failed:', err);
+  window.addEventListener('DOMContentLoaded', () => {
+    const status = document.getElementById('login-status');
+    if (status) status.textContent = '❌ ' + err.message;
+  });
+}
+
+const WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+let currentUser  = null;
+let commitments  = [];
+let assignments  = [];
+let schedule     = [];
+let history      = {};
+let modalCb      = null;
+let saveTimer    = null;
+
+// ── Auth ────────────────────────────────────────────────────────────────
+async function signInGoogle() {
+  if (!sb) {
+    setLoginStatus('❌ Could not connect to the login service. Check your internet connection and refresh the page.');
+    return;
+  }
+  setLoginStatus('Redirecting to Google...');
+  try {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setLoginStatus('❌ ' + error.message);
+  } catch (err) {
+    setLoginStatus('❌ ' + err.message);
+  }
+}
+
+async function signOut() {
+  // Flush any settings save that's still waiting on its debounce timer —
+  // otherwise a reload here would wipe it out before it ever wrote to the DB.
+  clearTimeout(saveTimer);
+  await doSaveSettings();
+  await sb.auth.signOut();
+  location.reload();
+}
+
+function setLoginStatus(msg) {
+  document.getElementById('login-status').textContent = msg;
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    showApp();
+    await loadUserData();
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('main-app').style.display = 'none';
+  }
+});
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+  document.getElementById('hdr-date').textContent =
+    new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+
+  // User avatar
+  const meta = currentUser.user_metadata || {};
+  const name = meta.full_name || meta.name || currentUser.email || 'Student';
+  document.getElementById('user-name').textContent = name;
+  const av = document.getElementById('user-avatar');
+  if (meta.avatar_url) {
+    av.innerHTML = `<img src="${meta.avatar_url}" alt="${name}">`;
+  } else {
+    av.textContent = name[0].toUpperCase();
+  }
+}
+
+// ── Load / Save user data ───────────────────────────────────────────────
+async function loadUserData() {
+  setSyncing(true);
+  try {
+    const uid = currentUser.id;
+
+    // Load settings
+    const { data: sets } = await sb.from('user_settings').select('*').eq('user_id', uid).single();
+    if (sets) {
+      setValue('sleep-start', sets.sleep_start);
+      setValue('sleep-end',   sets.sleep_end);
+      setValue('eve-start',   sets.eve_start);
+      setValue('max-chunk',   sets.max_chunk);
+      setValue('dinner-time', sets.dinner_time);
+      setValue('dinner-dur',  sets.dinner_dur);
+      setValue('shower-dur',  sets.shower_dur);
+      if (sets.canvas_url) setValue('canvas-url', sets.canvas_url);
+      if (sets.canvas_token) setValue('canvas-token', sets.canvas_token);
+    }
+
+    // Load commitments
+    const { data: comms } = await sb.from('commitments').select('*').eq('user_id', uid);
+    commitments = (comms || []).map(c => ({
+      id: c.id, name: c.name, days: c.days,
+      start: c.start_time, end: c.end_time, type: c.type,
+    }));
+    // Add default school block if no commitments
+    if (!commitments.length) {
+      commitments = [{id:'default-school', name:'School', days:['Mon','Tue','Wed','Thu','Fri'], start:'08:00', end:'15:00', type:'class'}];
+    }
+    renderCommitments();
+
+    // Load assignments
+    const { data: asgns } = await sb.from('assignments').select('*').eq('user_id', uid).eq('done', false);
+    assignments = (asgns || []).map(a => ({
+      id: a.id, name: a.name, type: a.type, due: a.due,
+      totalMins: a.total_mins, done: a.done, actualMins: a.actual_mins,
+      canvasId: a.canvas_id,
+    }));
+    renderAssignments();
+
+    // Load timing history
+    const { data: hist } = await sb.from('timing_history').select('*').eq('user_id', uid);
+    for (const h of (hist || [])) {
+      if (!history[h.assignment_key]) history[h.assignment_key] = [];
+      history[h.assignment_key].push(h.actual_mins);
+    }
+
+    if (assignments.length) buildSchedule(false);
+  } catch(e) { console.error('Load error:', e); }
+  setSyncing(false);
+}
+
+async function doSaveSettings() {
+  if (!currentUser) return;
+  setSyncing(true);
+  const settings = {
+    user_id:     currentUser.id,
+    sleep_start: getValue('sleep-start'),
+    sleep_end:   getValue('sleep-end'),
+    eve_start:   getValue('eve-start'),
+    max_chunk:   parseInt(getValue('max-chunk')),
+    dinner_time: getValue('dinner-time'),
+    dinner_dur:  parseInt(getValue('dinner-dur')),
+    shower_dur:  parseInt(getValue('shower-dur')),
+    canvas_url:  getValue('canvas-url'),
+    canvas_token: getValue('canvas-token'),
+    updated_at:  new Date().toISOString(),
+  };
+  await sb.from('user_settings').upsert(settings, {onConflict:'user_id'});
+  setSyncing(false);
+}
+
+function saveSettings() {
+  if (!currentUser) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSaveSettings, 800);
+}
+
+async function saveAssignmentToDB(a) {
+  if (!currentUser) return;
+  await sb.from('assignments').upsert({
+    id: typeof a.id === 'number' ? undefined : a.id,
+    user_id:   currentUser.id,
+    name:      a.name,
+    type:      a.type,
+    due:       a.due,
+    total_mins: a.totalMins,
+    done:      a.done,
+    actual_mins: a.actualMins,
+    canvas_id: a.canvasId || null,
+  }, {onConflict:'id'});
+}
+
+async function deleteAssignmentFromDB(id) {
+  if (!currentUser) return;
+  await sb.from('assignments').delete().eq('id', id).eq('user_id', currentUser.id);
+}
+
+function setSyncing(on) {
+  const dot = document.getElementById('sync-dot');
+  if (dot) dot.className = 'sync-dot' + (on ? ' syncing' : '');
+}
+
+function getValue(id) { return document.getElementById(id)?.value || ''; }
+function setValue(id, val) { const el = document.getElementById(id); if (el && val !== null && val !== undefined) el.value = val; }
+
+// ── Commitment form ─────────────────────────────────────────────────────
+function showForm() { const f=document.getElementById('add-form'); f.style.display='flex'; f.style.flexDirection='column'; }
+function hideForm() { document.getElementById('add-form').style.display='none'; }
+function toggleDay(btn) { btn.classList.toggle('on'); }
+
+async function saveCommitment() {
+  const name = document.getElementById('cf-name').value.trim();
+  const days  = [...document.querySelectorAll('.day-btn.on')].map(b=>b.dataset.d);
+  if (!name) { alert('Please enter a name.'); return; }
+  if (!days.length) { alert('Select at least one day.'); return; }
+  const c = {
+    name, days,
+    start: document.getElementById('cf-start').value,
+    end:   document.getElementById('cf-end').value,
+    type:  document.getElementById('cf-type').value,
+  };
+  if (currentUser) {
+    setSyncing(true);
+    const { data } = await sb.from('commitments').insert({
+      user_id: currentUser.id, name: c.name, days: c.days,
+      start_time: c.start, end_time: c.end, type: c.type,
+    }).select().single();
+    if (data) c.id = data.id;
+    setSyncing(false);
+  } else {
+    c.id = Date.now();
+  }
+  commitments.push(c);
+  document.getElementById('cf-name').value = '';
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('on'));
+  hideForm();
+  renderCommitments();
+}
+
+async function removeCommitment(id) {
+  commitments = commitments.filter(c=>c.id!==id);
+  if (currentUser && typeof id === 'string') {
+    await sb.from('commitments').delete().eq('id', id).eq('user_id', currentUser.id);
+  }
+  renderCommitments();
+}
+
+function renderCommitments() {
+  const el = document.getElementById('c-list');
+  if (!commitments.length) { el.innerHTML='<p style="font-size:12px;color:var(--muted)">No commitments yet</p>'; return; }
+  const dot = {class:'#6c8aff',activity:'#a78bfa'};
+  el.innerHTML = commitments.map(c=>`
+    <div class="c-item">
+      <div class="c-dot" style="background:${dot[c.type]||'#888'}"></div>
+      <div class="c-info">
+        <div class="c-name">${c.name}</div>
+        <div class="c-meta">${c.days.join(', ')} · ${fmt(c.start)}–${fmt(c.end)}</div>
+      </div>
+      <button class="btn-x" onclick="removeCommitment('${c.id}')">×</button>
+    </div>`).join('');
+}
+
+// ── Add assignment ──────────────────────────────────────────────────────
+async function addAssignment() {
+  const name = document.getElementById('a-name').value.trim();
+  if (!name) { document.getElementById('a-name').focus(); return; }
+  const a = {
+    id: Date.now(),
+    name, type: getValue('a-type'),
+    due:       parseInt(getValue('a-due'), 10),
+    totalMins: Math.round(parseFloat(getValue('a-hrs'))*60),
+    done: false, actualMins: null,
+  };
+  assignments.push(a);
+  document.getElementById('a-name').value = '';
+  document.getElementById('a-name').focus();
+  setSyncing(true);
+  await saveAssignmentToDB(a);
+  setSyncing(false);
+  renderAssignments();
+  buildSchedule(false);
+}
+
+async function removeAssignment(id) {
+  assignments = assignments.filter(a=>a.id!==id);
+  await deleteAssignmentFromDB(id);
+  renderAssignments();
+  if (assignments.length) buildSchedule(false);
+  else {
+    document.getElementById('sched').innerHTML='<div class="empty"><div class="ico">📅</div><p>Add an assignment above, then hit <strong>Generate schedule</strong></p></div>';
+    document.getElementById('stats').style.display='none';
+  }
+}
+
+function renderAssignments() {
+  const el = document.getElementById('a-list');
+  const pending = assignments.filter(a=>!a.done);
+  if (!pending.length) { el.innerHTML=''; return; }
+  el.innerHTML = pending.map(a=>{
+    const est = smartEstimate(a);
+    const dueLabel = a.due===1?'Due tomorrow':`Due in ${a.due} days`;
+    const pill = a.type==='hw'?'<span class="pill p-hw">HW</span>':'<span class="pill p-study">Study</span>';
+    return `<div class="a-item">${pill}
+      <div class="a-item-info">
+        <div class="a-item-name">${a.name}</div>
+        <div class="a-item-meta">${dueLabel} · ${est>=60?(est/60).toFixed(1)+'h':est+'min'}</div>
+      </div>
+      <button class="btn-x" onclick="removeAssignment('${a.id}')" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+
+// ── Smart estimate ──────────────────────────────────────────────────────
+function smartEstimate(a) {
+  const key = `${a.type}:${a.name}`;
+  const hist = history[key];
+  if (hist && hist.length >= 2) return Math.round(hist.reduce((s,v)=>s+v,0)/hist.length);
+  return a.totalMins;
+}
+
+function priority(a) {
+  return a.due * 10 + (a.type==='hw'?0:1) + smartEstimate(a)/1000;
+}
+
+// ── Utils ───────────────────────────────────────────────────────────────
+function toMins(hhmm) { if(!hhmm)return 0; const[h,m]=hhmm.split(':').map(Number); return h*60+(m||0); }
+function pad2(n) { return String(Math.floor(n)).padStart(2,'0'); }
+function toTime(m) { const t=((m%1440)+1440)%1440,h=Math.floor(t/60),mn=t%60; return `${h%12||12}:${pad2(mn)} ${h>=12?'pm':'am'}`; }
+function fmt(hhmm) { return toTime(toMins(hhmm)); }
+function nowMins() { const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+function sleepHrs(s,e) { let a=toMins(s),b=toMins(e); if(b<=a)b+=1440; return (b-a)/60; }
+function getFreeSlots(ws,we,fixed) {
+  const sorted=fixed.filter(f=>f.end>ws&&f.start<we).sort((a,b)=>a.start-b.start);
+  const slots=[];let cur=ws;
+  for(const f of sorted){if(f.start>cur)slots.push({start:cur,end:Math.min(f.start,we)});cur=Math.max(cur,f.end);}
+  if(cur<we)slots.push({start:cur,end:we});
+  return slots.filter(s=>s.end-s.start>=15);
+}
+
+// ── Build schedule ──────────────────────────────────────────────────────
+function buildSchedule(cramTonight) {
+  const pending = assignments.filter(a=>!a.done);
+  if (!pending.length) { alert('Add at least one assignment first!'); return; }
+  const dayName    = WDAYS[new Date().getDay()];
+  const sleepStart = getValue('sleep-start')||'22:30';
+  const sleepEnd   = getValue('sleep-end')||'07:00';
+  const CHUNK      = parseInt(getValue('max-chunk'),10)||60;
+  const eveStart   = getValue('eve-start')||'15:00';
+  const dinnerTime = getValue('dinner-time')||'18:00';
+  const dinnerDur  = parseInt(getValue('dinner-dur'),10)||30;
+  const showerDur  = parseInt(getValue('shower-dur'),10)||30;
+  const winStart   = Math.max(nowMins(), toMins(eveStart));
+  let   winEnd     = toMins(sleepStart);
+  if (winEnd<=winStart) winEnd+=1440;
+  const showerStart  = toMins(sleepStart)-showerDur;
+  const dinnerStartM = toMins(dinnerTime);
+  const todayFixed = [
+    ...commitments.filter(c=>c.days.includes(dayName)).map(c=>({name:c.name,type:c.type,start:toMins(c.start),end:toMins(c.end)})),
+    {name:'Dinner',type:'dinner',start:dinnerStartM,end:dinnerStartM+dinnerDur},
+    {name:'Shower & wind-down',type:'shower',start:showerStart,end:showerStart+showerDur},
+  ].sort((a,b)=>a.start-b.start);
+  const freeSlots = getFreeSlots(winStart, winEnd, todayFixed);
+  const totalFree = freeSlots.reduce((s,sl)=>s+sl.end-sl.start,0);
+  const sorted    = [...pending].sort((a,b)=>priority(a)-priority(b));
+  const chunks    = [];
+  for (const a of sorted) {
+    const est=smartEstimate(a);
+    const evenings=cramTonight?1:Math.max(1,Math.min(a.due,Math.ceil(est/CHUNK)));
+    const tonightMins=cramTonight?est:Math.ceil(est/evenings);
+    let used=0,ci=0;
+    while(used<tonightMins){const bite=Math.min(CHUNK,tonightMins-used);chunks.push({assignId:a.id,name:a.name,atype:a.type,mins:bite,totalDays:evenings,chunkIdx:ci});used+=bite;ci++;}
+  }
+  schedule=[];
+  for(const f of todayFixed) schedule.push({kind:f.type,name:f.name,start:f.start,end:f.end,done:false});
+  const slotState=freeSlots.map(s=>({start:s.start,end:s.end,cursor:s.start}));
+  let placed=0;
+  const unplacedIds=new Set();
+  for(const ch of chunks){
+    let ok=false;
+    for(const sl of slotState){
+      if(sl.cursor+ch.mins<=sl.end){
+        schedule.push({kind:'assignment',assignId:ch.assignId,name:ch.name,atype:ch.atype,start:sl.cursor,end:sl.cursor+ch.mins,totalDays:ch.totalDays,chunkIdx:ch.chunkIdx,done:false});
+        sl.cursor+=ch.mins;placed++;
+        if(placed%2===0&&sl.cursor+10<=sl.end){schedule.push({kind:'break',name:'Break',start:sl.cursor,end:sl.cursor+10,done:false});sl.cursor+=10;}
+        ok=true;break;
+      }
+    }
+    if(!ok)unplacedIds.add(ch.assignId);
+  }
+  const sleepStartM=toMins(sleepStart);
+  schedule.push({kind:'sleep',name:'Sleep',start:sleepStartM,end:sleepStartM+Math.round(sleepHrs(sleepStart,sleepEnd)*60)});
+  schedule.sort((a,b)=>a.start-b.start);
+  const unplaced=pending.filter(a=>unplacedIds.has(a.id));
+  const taskMins=schedule.filter(s=>s.kind==='assignment').reduce((t,s)=>t+s.end-s.start,0);
+  const breakMins=schedule.filter(s=>s.kind==='break').reduce((t,s)=>t+s.end-s.start,0);
+  const freeMins=Math.max(0,totalFree-taskMins-breakMins);
+  document.getElementById('stats').style.display='flex';
+  document.getElementById('s-tasks').textContent=pending.length;
+  document.getElementById('s-time').textContent=(taskMins/60).toFixed(1)+'h';
+  document.getElementById('s-sleep').textContent=sleepHrs(sleepStart,sleepEnd).toFixed(1)+'h';
+  document.getElementById('s-free').textContent=freeMins>0?Math.round(freeMins)+'min':'—';
+  renderSchedule(unplaced);
+}
+
+// ── Mark done ───────────────────────────────────────────────────────────
+async function markDone(idx) {
+  const b=schedule[idx];
+  if(!b||b.done)return;
+  b.done=true;
+  const allDone=schedule.filter(s=>s.assignId===b.assignId).every(s=>s.done);
+  if(allDone){const a=assignments.find(a=>a.id===b.assignId);if(a){a.done=true;setSyncing(true);await saveAssignmentToDB(a);setSyncing(false);}}
+  showModal(async actual=>{
+    if(actual){
+      const mins=parseMins(actual);
+      if(mins){
+        const a=assignments.find(a=>a.id===b.assignId);
+        if(a){
+          a.actualMins=mins;
+          const key=`${a.type}:${a.name}`;
+          if(!history[key])history[key]=[];
+          history[key].push(mins);
+          if(history[key].length>10)history[key].shift();
+          if(currentUser){setSyncing(true);await sb.from('timing_history').insert({user_id:currentUser.id,assignment_key:key,actual_mins:mins});setSyncing(false);}
+        }
+      }
+    }
+    checkFreeTime();
+    renderAssignments();
+    renderSchedule([]);
+  });
+}
+
+function checkFreeTime() {
+  if(schedule.filter(s=>s.kind==='assignment'&&!s.done).length)return;
+  const n=nowMins()+15,sb2=schedule.find(s=>s.kind==='sleep');
+  if(sb2){const dur=sb2.end-sb2.start;sb2.start=n;sb2.end=n+dur;}
+  schedule.push({kind:'nudge',name:"You're done early — great work! Go to sleep early tonight 🌙",start:nowMins(),end:nowMins()+1});
+  schedule.sort((a,b)=>a.start-b.start);
+}
+
+function cramMode() {
+  if(!assignments.filter(a=>!a.done).length){alert('No pending assignments!');return;}
+  buildSchedule(true);
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────
+function showModal(cb){modalCb=cb;document.getElementById('modal-input').value='';document.getElementById('modal').style.display='flex';setTimeout(()=>document.getElementById('modal-input').focus(),80);}
+function closeModal(val){document.getElementById('modal').style.display='none';if(modalCb){modalCb(val);modalCb=null;}}
+function parseMins(str){str=(str||'').toLowerCase();let m=str.match(/(\d+\.?\d*)\s*h/);if(m)return Math.round(parseFloat(m[1])*60);m=str.match(/(\d+)\s*m/);if(m)return parseInt(m[1],10);m=str.match(/^(\d+)$/);if(m)return parseInt(m[1],10);return null;}
+
+// ── Render schedule ──────────────────────────────────────────────────────
+function renderSchedule(unplaced) {
+  const el=document.getElementById('sched');
+  if(!schedule.length){el.innerHTML='<div class="empty"><div class="ico">📅</div><p>Add an assignment above, then hit <strong>Generate schedule</strong></p></div>';return;}
+  let html='';
+  if(unplaced&&unplaced.length) html+=`<div class="warn">⚠️ Not enough time tonight for: <strong>${unplaced.map(a=>a.name).join(', ')}</strong>. Use ⚡ Cram mode to force it in.</div>`;
+  html+=schedule.map((b,i)=>{
+    if(b.kind==='nudge')return`<div class="nudge">🌙 ${b.name}</div>`;
+    const bClass={class:'blk-class',activity:'blk-activity',sleep:'blk-sleep',break:'blk-break',dinner:'blk-dinner',shower:'blk-shower',assignment:b.atype==='study'?'blk-study':'blk-hw'}[b.kind]||'blk-hw';
+    const pill={class:'<span class="pill p-class">Class</span>',activity:'<span class="pill p-activity">Activity</span>',sleep:'<span class="pill p-sleep">Sleep</span>',break:'<span class="pill p-break">Break</span>',dinner:'<span class="pill p-dinner">Dinner</span>',shower:'<span class="pill p-shower">Wind-down</span>'}[b.kind]||(b.atype==='study'?'<span class="pill p-study">Study</span>':'<span class="pill p-hw">Homework</span>');
+    const range=`${toTime(b.start)} – ${toTime(b.end)}`;
+    const splitTag=b.kind==='assignment'&&b.totalDays>1?`<span class="split-tag">Day 1 of ${b.totalDays}</span>`:'';
+    const dur=b.end-b.start;
+    const acts=b.kind==='assignment'?(b.done?`<div class="blk-acts"><span class="done-lbl">✓ Done</span><span class="tag">${dur} min</span></div>`:`<div class="blk-acts"><button class="mark-btn" onclick="markDone(${i})">✓ Mark done</button><span class="tag">${dur} min</span>${splitTag}</div>`):'';
+    return`<div class="blk ${bClass}${b.done?' blk-done':''}"><div class="blk-time">${toTime(b.start)}</div><div class="blk-body"><div class="blk-title">${b.name} ${pill}</div><div class="blk-sub">${range}</div>${acts}</div></div>`;
+  }).join('');
+  el.innerHTML=html;
+}
+
+// ── Canvas API ───────────────────────────────────────────────────────────
+// Best-effort guess only — there's no reliable directory of school Canvas
+// addresses (especially for private schools, which often use custom
+// subdomains). This just fills in the common "schoolname.instructure.com"
+// pattern as a starting point and tells the user to verify it.
+function guessCanvasUrl() {
+  const el = document.getElementById('canvas-url');
+  const hint = document.getElementById('canvas-url-hint');
+  const val = el.value.trim();
+  if (!val) { hint.style.display = 'none'; return; }
+  // Already looks like a real domain — leave it alone.
+  if (/\./.test(val) && !/\s/.test(val)) { hint.style.display = 'none'; return; }
+  const slug = val.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '');
+  if (!slug) { hint.style.display = 'none'; return; }
+  const guess = `${slug}.instructure.com`;
+  el.value = guess;
+  hint.textContent = `Guessed "${guess}" from the name — check this matches the address you see when you log into Canvas normally, and correct it if not.`;
+  hint.style.display = 'block';
+  saveSettings();
+}
+
+async function fetchCanvas() {
+  const urlRaw = getValue('canvas-url').replace(/^https?:\/\//,'').replace(/\/$/,'');
+  const token  = getValue('canvas-token');
+  const status = document.getElementById('canvas-status');
+  if(!urlRaw||!token){setStatus(status,'⚠️ Please enter your school URL and token.','var(--amber)');return;}
+  setStatus(status,'⏳ Connecting to Canvas...','var(--muted)');
+  status.style.display='block';
+  await saveSettings();
+  async function canvasGet(path){
+    const res=await fetch('/api/canvas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({canvasUrl:urlRaw,token,path})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));if(res.status===401)throw new Error('Invalid token.');throw new Error(e.error||`Error ${res.status}`);}
+    return res.json();
+  }
+  try{
+    const courses=await canvasGet('/api/v1/courses?enrollment_state=active&per_page=50');
+    if(!Array.isArray(courses)||!courses.length){setStatus(status,'⚠️ No active courses found.','var(--amber)');return;}
+    setStatus(status,`📚 Found ${courses.length} courses...`,'var(--muted)');
+    const now=new Date();let imported=0,skipped=0;
+    for(const course of courses){
+      try{
+        const aList=await canvasGet(`/api/v1/courses/${course.id}/assignments?bucket=upcoming&per_page=50&order_by=due_at`);
+        if(!Array.isArray(aList))continue;
+        for(const a of aList){
+          if(!a.due_at)continue;
+          const dueDays=Math.max(1,Math.ceil((new Date(a.due_at)-now)/86400000));
+          if(dueDays>14){skipped++;continue;}
+          if(assignments.some(ex=>ex.canvasId===a.id)){skipped++;continue;}
+          const name=a.name||'Assignment';
+          const type=guessType(name,a.submission_types||[]);
+          const estMins=guessDuration(name,a.points_possible,type);
+          const newA={id:Date.now()+Math.random(),canvasId:a.id,name:`${name} (${course.name||course.course_code||'Course'})`,type,due:dueDays,totalMins:estMins,done:false,actualMins:null};
+          assignments.push(newA);
+          await saveAssignmentToDB(newA);
+          imported++;
+        }
+      }catch(e){}
+    }
+    setStatus(status,imported>0?`✅ Imported ${imported} assignment${imported!==1?'s':''}!`:'⚠️ No upcoming assignments found.',imported>0?'var(--green)':'var(--amber)');
+    renderAssignments();
+    if(imported>0)buildSchedule(false);
+  }catch(err){setStatus(status,`❌ ${err.message}`,'var(--red)');}
+}
+
+function setStatus(el,msg,color){el.style.display='block';el.style.color=color;el.textContent=msg;}
+function guessType(name,sub){const n=name.toLowerCase();if(n.includes('quiz')||n.includes('test')||n.includes('exam')||n.includes('midterm')||n.includes('final'))return'study';if(sub.includes('online_quiz'))return'study';return'hw';}
+function guessDuration(name,pts,type){const n=name.toLowerCase();if(n.includes('read'))return 45;if(n.includes('essay')||n.includes('paper')||n.includes('report'))return 120;if(n.includes('problem')||n.includes('worksheet'))return 60;if(type==='study')return 90;if(pts){if(pts<=10)return 30;if(pts<=25)return 45;if(pts<=50)return 60;if(pts<=100)return 90;return 120;}return 60;}
+
+// ── PWA install ──────────────────────────────────────────────────────────
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('install-banner').style.display='flex';});
+document.getElementById('install-btn')?.addEventListener('click',async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('install-banner').style.display='none';}});
+if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));}
+</script>
+</body>
+</html>
